@@ -21,7 +21,7 @@ class client_thread(threading.Thread):
         while message_part:
             message += message_part
             message_part = self.socket.recv(1024)
-        logging.info("Got '{0}' from {1}".format(message.decode("utf-8"),
+        logging.info("Got '{0}' from {1}".format(message.decode("latin1"),
                                                  self.addr))
         self.socket.send(message)
         self.socket.close()
