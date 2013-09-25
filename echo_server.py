@@ -1,4 +1,4 @@
-""" Server program for elo322 - Redes de Computadores """
+""" echo server program for elo322 - Redes de Computadores """
 import socket
 import logging
 
@@ -28,8 +28,9 @@ def main():
         while message_part:
             message += message_part
             message_part = client_socket.recv(1024)
-        print("Got '{0}' from {1}".format(message.decode("utf-8"), addr))
-        client_socket.send(b"Got your message")
+        logging.info("Got '{0}' from {1}".format(message.decode("utf-8"),
+                                                 addr))
+        client_socket.send(message)
         client_socket.close()
 
 if __name__ == '__main__':
