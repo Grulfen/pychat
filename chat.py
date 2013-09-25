@@ -12,7 +12,6 @@ class client_thread(threading.Thread):
     """ Prints the message from a client connection """
 
     def __init__(self, client_socket):
-        logging.debug("Client thread created")
         super().__init__()
         self.socket = client_socket
         self.addr = self.socket.getpeername()
@@ -25,6 +24,7 @@ class client_thread(threading.Thread):
             message += message_part
             message_part = self.socket.recv(1024)
         message = message.decode('latin1')
+        logging.debug("Got message {0} from {1}".format(message, self.addr))
         print(message)
 
 
@@ -35,7 +35,6 @@ class listen_thread(threading.Thread):
         super().__init__()
         self.host_port = host_port
         self.remote_port = remote_port
-        logging.debug("Listen thread created")
 
     def run(self):
         logging.debug("Listen thread started")
@@ -49,19 +48,21 @@ class listen_thread(threading.Thread):
         while True:
             try:
                 inputready, _, _ = select.select([listen_socket, sys.stdin],
-                                                 [], [])
+                                                 [], [], 0)
             except KeyboardInterrupt:
                 listen_socket.close()
+                print("Shutting down")
                 break
 
             for s in inputready:
                 if s == listen_socket:
                     client_socket, _ = listen_socket.accept()
                     cthread = client_thread(client_socket)
-                    cthread.run()
+                    cthread.start()
                 elif s == sys.stdin:
                     s_thread = send_thread(host, self.remote_port)
-                    s_thread.run()
+                    s_thread.start()
+        logging.debug("Listen thread shutting down")
 
 
 class send_thread(threading.Thread):
@@ -72,14 +73,20 @@ class send_thread(threading.Thread):
         super().__init__()
         self.port = port
         self.host = host
-        self.message = sys.stdin.readline()
+        self.message = sys.stdin.readline().rstrip()
 
     def run(self):
-        logging.debug("Sending message {0}".format(self.message))
         # Internet socket and TCP
         send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        send_socket.connect((self.host, self.port))
+        try:
+            send_socket.connect((self.host, self.port))
+        except ConnectionRefusedError:
+            logging.warning("Could not connect to {0}".format((self.host,
+                                                               self.port)))
+            return
+
+        logging.debug("Sending message {0}".format(self.message))
         send_socket.send(self.message.encode('latin1'))
         send_socket.close()
 
@@ -94,11 +101,11 @@ def main():
         sys.exit(1)
 
     l_thread = listen_thread(host_port, remote_port)
-    l_thread.run()
-
-    while True:
-        pass
+    l_thread.start()
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)
