@@ -2,10 +2,13 @@ import sys
 import socket
 import logging
 import select
+from argparse import ArgumentParser
+from collections import namedtuple
+from PyQt4 import QtGui, QtCore
 
 logging.basicConfig(level=logging.INFO)
 
-from PyQt4 import QtGui, QtCore
+Address = namedtuple('Address', ['name', 'port'])
 
 
 class GenericThread(QtCore.QThread):
@@ -25,13 +28,13 @@ class GenericThread(QtCore.QThread):
 
 class Chat(QtGui.QWidget):
     text_add = QtCore.pyqtSignal(str, name="new_message")
-    def __init__(self, host=socket.gethostname(), local_port=12347, remote_port=12345):
+    def __init__(self, host, remote, friend='R'):
         super().__init__()
 
         self.host = host
-        self.local_port = local_port
-        self.remote_port = remote_port
+        self.remote = remote
         self.initUI()
+        self.friend = friend
 
         self.l_thread = GenericThread(self.listen_thread)
         self.l_thread.start()
@@ -67,38 +70,36 @@ class Chat(QtGui.QWidget):
         if (e.key() == QtCore.Qt.Key_Return) or (e.key() == QtCore.Qt.Key_Enter):
             text = self.message.toPlainText()
             self.spawn_send_thread(text)
-            self.earlier_messages.append("l: " + text)
+            self.earlier_messages.append("yo: " + text)
             self.message.clear()
         else:
             QtGui.QTextEdit.keyPressEvent(self.message, e)
 
     def send_message(self, message):
         # Internet socket and TCP
-        host = self.host
-        port = self.remote_port
+        remote = self.remote
         send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
-            send_socket.connect((host, port))
+            send_socket.connect(remote)
         except ConnectionRefusedError:
-            logging.warning("Could not connect to {0}".format((host, port)))
+            logging.warning("Could not connect to {0}".format(remote))
             return
 
-        logging.debug("Sending message {0} to  {1}".format(message, (host, port)))
+        logging.debug("Sending message {0} to  {1}".format(message, remote))
         send_socket.send(message.encode('latin1'))
         send_socket.close()
 
     def add_message(self, message):
-        self.earlier_messages.append("r: " + message)
+        self.earlier_messages.append("{0}: ".format(self.friend) + message)
 
     def listen_thread(self):
         host = self.host
-        port = self.local_port
 
         logging.debug("Listen thread started")
         listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        listen_socket.bind((host, port))
+        listen_socket.bind(host)
 
         listen_socket.listen(5)
         listen_socket.setblocking(0)
@@ -125,12 +126,17 @@ class Chat(QtGui.QWidget):
 
 
 def main():
-    if len(sys.argv) == 3:
-        local_port, remote_port = int(sys.argv[1]), int(sys.argv[2])
-    else:
-        local_port, remote_port = 12347, 12345
+    parser = ArgumentParser(description='Chat program')
+    parser.add_argument('-l', '--local-port', default=12345, type=int)
+    parser.add_argument('-p', '--remote-port', default=12346, type=int)
+    parser.add_argument('-r', '--remote', default=socket.gethostname())
+    parser.add_argument('-f', '--friend', default='R', help='Friends name')
+    args = parser.parse_args()
+    host = Address(socket.gethostname(), args.local_port)
+    remote = Address(args.remote, args.remote_port)
+    
     app = QtGui.QApplication(sys.argv)
-    chat = Chat(local_port=local_port, remote_port=remote_port)
+    chat = Chat(host=host, remote=remote, friend=args.friend)
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
