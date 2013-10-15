@@ -10,7 +10,7 @@ from PyQt4 import QtGui, QtCore
 
 class GenericThread(QtCore.QThread):
     def __init__(self, function, *args, **kwargs):
-        QtCore.QThread.__init__(self)
+        super().__init__()
         self.function = function
         self.args = args
         self.kwargs = kwargs
@@ -24,6 +24,7 @@ class GenericThread(QtCore.QThread):
 
 
 class Chat(QtGui.QWidget):
+    text_add = QtCore.pyqtSignal(str, name="new_message")
     def __init__(self, host=socket.gethostname(), local_port=12347, remote_port=12345):
         super().__init__()
 
@@ -32,11 +33,10 @@ class Chat(QtGui.QWidget):
         self.remote_port = remote_port
         self.initUI()
 
-        self.l_thread = GenericThread(listen_thread, host, local_port)
+        self.l_thread = GenericThread(self.listen_thread)
         self.l_thread.start()
 
     def initUI(self):
-
         self.earlier_messages = QtGui.QTextEdit()
         self.earlier_messages.setReadOnly(True)
 
@@ -50,12 +50,13 @@ class Chat(QtGui.QWidget):
 
         self.setLayout(vbox)
 
+        self.text_add.connect(self.add_message)
         self.setGeometry(300, 300, 350, 300)
         self.setWindowTitle('Chat')
         self.show()
 
     def spawn_send_thread(self, message):
-        send_thread = GenericThread(send_message, port=self.remote_port, message=message)
+        send_thread = GenericThread(self.send_message, message=message)
         send_thread.start()
 
     def keyPressEvent(self, e):
@@ -64,65 +65,63 @@ class Chat(QtGui.QWidget):
 
     def message_key_handler(self, e):
         if (e.key() == QtCore.Qt.Key_Return) or (e.key() == QtCore.Qt.Key_Enter):
-            text= self.message.toPlainText()
+            text = self.message.toPlainText()
             self.spawn_send_thread(text)
-            self.earlier_messages.append(text)
+            self.earlier_messages.append("l: " + text)
             self.message.clear()
         else:
             QtGui.QTextEdit.keyPressEvent(self.message, e)
 
+    def send_message(self, message):
+        # Internet socket and TCP
+        host = self.host
+        port = self.remote_port
+        send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-def send_message(host=socket.gethostname(), port=12345, message="Hej"):
-    # Internet socket and TCP
-    send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    try:
-        send_socket.connect((host, port))
-    except ConnectionRefusedError:
-        logging.warning("Could not connect to {0}".format((host, port)))
-        return
-
-    logging.debug("Sending message {0} to  {1}".format(message, (host, port)))
-    send_socket.send(message.encode('latin1'))
-    send_socket.close()
-
-
-def listen_thread(host, port):
-    logging.debug("Listen thread started")
-    listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    listen_socket.bind((host, port))
-
-    listen_socket.listen(5)
-    listen_socket.setblocking(0)
-    while True:
         try:
+            send_socket.connect((host, port))
+        except ConnectionRefusedError:
+            logging.warning("Could not connect to {0}".format((host, port)))
+            return
+
+        logging.debug("Sending message {0} to  {1}".format(message, (host, port)))
+        send_socket.send(message.encode('latin1'))
+        send_socket.close()
+
+    def add_message(self, message):
+        self.earlier_messages.append("r: " + message)
+
+    def listen_thread(self):
+        host = self.host
+        port = self.local_port
+
+        logging.debug("Listen thread started")
+        listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        listen_socket.bind((host, port))
+
+        listen_socket.listen(5)
+        listen_socket.setblocking(0)
+        while True:
             inputready, _, _ = select.select([listen_socket], [], [], 0)
-        except KeyboardInterrupt:
-            listen_socket.close()
-            print("Shutting down")
-            break
 
-        for s in inputready:
-            if s == listen_socket:
-                # TODO fixa här
+            if inputready:
                 client_socket, _ = listen_socket.accept()
-                cthread = GenericThread(get_message, client_socket)
+                cthread = GenericThread(self.get_message, client_socket)
                 cthread.start()
-    logging.debug("Listen thread shutting down")
+        logging.debug("Listen thread shutting down")
 
-
-def get_message(c_socket):
-    addr = c_socket.getpeername()
-    logging.debug("Client thread started")
-    message_part = c_socket.recv(1024)
-    message = b""
-    while message_part:
-        message += message_part
+    def get_message(self, c_socket):
+        addr = c_socket.getpeername()
+        logging.debug("Client thread started")
         message_part = c_socket.recv(1024)
-    message = message.decode('latin1')
-    logging.debug("Got message {0} from {1}".format(message, addr))
-    print(message)
+        message = b""
+        while message_part:
+            message += message_part
+            message_part = c_socket.recv(1024)
+        message = message.decode('latin1')
+        logging.debug("Got message {0} from {1}".format(message, addr))
+        self.text_add.emit(message)
 
 
 def main():
