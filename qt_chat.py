@@ -128,7 +128,7 @@ class Chat(QtGui.QWidget):
 def main():
     parser = ArgumentParser(description='Chat program')
     parser.add_argument('-l', '--local-port', default=12345, type=int)
-    parser.add_argument('-p', '--remote-port', default=12346, type=int)
+    parser.add_argument('-p', '--remote-port', default=12345, type=int)
     parser.add_argument('-r', '--remote', default=socket.gethostname())
     parser.add_argument('-f', '--friend', default='R', help='Friends name')
     args = parser.parse_args()
