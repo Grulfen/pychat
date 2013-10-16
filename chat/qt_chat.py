@@ -22,12 +22,13 @@ class GenericThread(QtCore.QThread):
         self.wait()
 
     def run(self):
-        self.function(*self.args,**self.kwargs)
+        self.function(*self.args, **self.kwargs)
         return
 
 
 class Chat(QtGui.QWidget):
     text_add = QtCore.pyqtSignal(str, name="new_message")
+
     def __init__(self, host, remote, friend='R'):
         super().__init__()
 
@@ -35,9 +36,6 @@ class Chat(QtGui.QWidget):
         self.remote = remote
         self.initUI()
         self.friend = friend
-
-        self.l_thread = GenericThread(self.listen_thread)
-        self.l_thread.start()
 
     def initUI(self):
         self.earlier_messages = QtGui.QTextEdit()
@@ -93,36 +91,40 @@ class Chat(QtGui.QWidget):
     def add_message(self, message):
         self.earlier_messages.append("{0}: ".format(self.friend) + message)
 
-    def listen_thread(self):
-        host = self.host
 
-        logging.debug("Listen thread started")
-        listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def listen_thread(host, signal):
+    """ Thread that awaits incoming connection and starts a new thread to
+        handle incoming connections"""
+    logging.debug("Listen thread started")
+    listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        listen_socket.bind(host)
+    listen_socket.bind(host)
 
-        listen_socket.listen(5)
-        listen_socket.setblocking(0)
-        while True:
-            inputready, _, _ = select.select([listen_socket], [], [], 0)
+    listen_socket.listen(5)
+    listen_socket.setblocking(0)
+    while True:
+        inputready, _, _ = select.select([listen_socket], [], [], 0)
 
-            if inputready:
-                client_socket, _ = listen_socket.accept()
-                cthread = GenericThread(self.get_message, client_socket)
-                cthread.start()
-        logging.debug("Listen thread shutting down")
+        if inputready:
+            client_socket, _ = listen_socket.accept()
+            cthread = GenericThread(get_message, client_socket, signal)
+            cthread.start()
+    logging.debug("Listen thread shutting down")
 
-    def get_message(self, c_socket):
-        addr = c_socket.getpeername()
-        logging.debug("Client thread started")
+
+def get_message(c_socket, signal):
+    """ Receive a message from connection and emit a signal to GUI thread
+    """
+    addr = c_socket.getpeername()
+    logging.debug("Client thread started")
+    message_part = c_socket.recv(1024)
+    message = b""
+    while message_part:
+        message += message_part
         message_part = c_socket.recv(1024)
-        message = b""
-        while message_part:
-            message += message_part
-            message_part = c_socket.recv(1024)
-        message = message.decode('latin1')
-        logging.debug("Got message {0} from {1}".format(message, addr))
-        self.text_add.emit(message)
+    message = message.decode('latin1')
+    logging.debug("Got message {0} from {1}".format(message, addr))
+    signal.emit(message)
 
 
 def main():
@@ -134,9 +136,11 @@ def main():
     args = parser.parse_args()
     host = Address(socket.gethostname(), args.local_port)
     remote = Address(args.remote, args.remote_port)
-    
+
     app = QtGui.QApplication(sys.argv)
     chat = Chat(host=host, remote=remote, friend=args.friend)
+    l_thread = GenericThread(listen_thread, host, chat.text_add)
+    l_thread.start()
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
