@@ -4,6 +4,7 @@ import socket
 import logging
 import select
 import time
+from queue import Queue
 from argparse import ArgumentParser
 from collections import namedtuple
 from PyQt4 import QtGui, QtCore
@@ -32,13 +33,14 @@ class GenericThread(QtCore.QThread):
 class Chat(QtGui.QWidget):
     text_add = QtCore.pyqtSignal(str, name="new_message")
 
-    def __init__(self, host, remote, friend):
+    def __init__(self, host, remote, friend, send_queue):
         super().__init__()
 
         self.host = host
         self.remote = remote
         self.initUI()
         self.friend = friend
+        self.send_queue = send_queue
 
     def initUI(self):
         self.earlier_messages = QtGui.QTextEdit()
@@ -72,9 +74,10 @@ class Chat(QtGui.QWidget):
                 (e.key() == QtCore.Qt.Key_Enter):
             text = self.message.toPlainText()
             if text:
+                self.send_queue.put(text)
                 self.earlier_messages.append("yo: " + text)
                 self.message.clear()
-                self.spawn_send_thread(text)
+                # self.spawn_send_thread(text)
         else:
             QtGui.QTextEdit.keyPressEvent(self.message, e)
 
@@ -95,6 +98,13 @@ class Chat(QtGui.QWidget):
 
     def add_message(self, message):
         self.earlier_messages.append("{0}: ".format(self.friend) + message)
+
+
+def wait_send(queue, chat):
+    while True:
+        if not queue.empty():
+            message = queue.get()
+            chat.send_message(message)
 
 
 def wait_receive(get_pipe, signal):
@@ -141,10 +151,12 @@ def get_message(c_socket, send_pipe):
     send_pipe.send(message)
 
 
-def start_chat(host, remote, friend, get_pipe):
+def start_chat(host, remote, friend, get_pipe, queue):
     app = QtGui.QApplication(sys.argv)
-    chat = Chat(host=host, remote=remote, friend=friend)
+    chat = Chat(host=host, remote=remote, friend=friend, send_queue=queue)
+    send = GenericThread(wait_send, queue, chat)
     recv = GenericThread(wait_receive, get_pipe, chat.text_add)
+    send.start()
     recv.start()
     sys.exit(app.exec_())
 
@@ -159,13 +171,15 @@ def main():
     host = Address(socket.gethostname(), args.local_port)
     remote = Address(args.remote, args.remote_port)
     get_pipe, send_pipe = Pipe(False)
+    queue = Queue()
 
     l_thread = GenericThread(listen_thread, host, send_pipe)
     l_thread.start()
 
     p1 = Process(target=start_chat, kwargs={'host': host, 'remote': remote,
                                             'friend': args.friend,
-                                            'get_pipe': get_pipe})
+                                            'get_pipe': get_pipe,
+                                            'queue': queue})
 
     p1.start()
     p1.join()
