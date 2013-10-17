@@ -5,6 +5,7 @@ import select
 from argparse import ArgumentParser
 from collections import namedtuple
 from PyQt4 import QtGui, QtCore
+from multiprocessing import Process
 
 logging.basicConfig(level=logging.INFO)
 
@@ -127,6 +128,14 @@ def get_message(c_socket, signal):
     signal.emit(message)
 
 
+def start_chat(host, remote, friend='R'):
+    app = QtGui.QApplication(sys.argv)
+    chat = Chat(host=host, remote=remote, friend=friend)
+    l_thread = GenericThread(listen_thread, host, chat.text_add)
+    l_thread.start()
+    sys.exit(app.exec_())
+
+
 def main():
     parser = ArgumentParser(description='Chat program')
     parser.add_argument('-l', '--local-port', default=12345, type=int)
@@ -136,12 +145,14 @@ def main():
     args = parser.parse_args()
     host = Address(socket.gethostname(), args.local_port)
     remote = Address(args.remote, args.remote_port)
-
-    app = QtGui.QApplication(sys.argv)
-    chat = Chat(host=host, remote=remote, friend=args.friend)
-    l_thread = GenericThread(listen_thread, host, chat.text_add)
-    l_thread.start()
-    sys.exit(app.exec_())
+    p1 = Process(target=start_chat, kwargs={'host': host, 'remote': remote,
+                                            'friend': args.friend})
+    p2 = Process(target=start_chat, kwargs={'host': remote, 'remote': host,
+                                            'friend': args.friend})
+    p1.start()
+    p2.start()
+    p1.join()
+    p2.join()
 
 if __name__ == '__main__':
     main()
