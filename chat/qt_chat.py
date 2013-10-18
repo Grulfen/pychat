@@ -1,14 +1,12 @@
-""" Chat program for ELO322 """
+""" Chat utilities for ELO322 """
 import sys
 import socket
 import logging
 import select
 import time
-from queue import Queue
-from argparse import ArgumentParser
+import re
 from collections import namedtuple
 from PyQt4 import QtGui, QtCore
-from multiprocessing import Process, Pipe
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,6 +14,7 @@ Address = namedtuple('Address', ['name', 'port'])
 
 
 class GenericThread(QtCore.QThread):
+    """ Class to make runt a function in a thread """
     def __init__(self, function, *args, **kwargs):
         super().__init__()
         self.function = function
@@ -26,14 +25,16 @@ class GenericThread(QtCore.QThread):
         self.wait()
 
     def run(self):
+        """ Run the thread """
         self.function(*self.args, **self.kwargs)
         return
 
 
 class Chat(QtGui.QWidget):
+    """ Simple chat with GUI """
     text_add = QtCore.pyqtSignal(str, name="new_message")
 
-    def __init__(self, host, remote, friend, send_queue):
+    def __init__(self, host, remote, send_queue, friend, name):
         super().__init__()
 
         self.host = host
@@ -41,8 +42,10 @@ class Chat(QtGui.QWidget):
         self.initUI()
         self.friend = friend
         self.send_queue = send_queue
+        self.name = name
 
     def initUI(self):
+        """ Init the UI and signals """
         self.earlier_messages = QtGui.QTextEdit()
         self.earlier_messages.setReadOnly(True)
 
@@ -61,15 +64,12 @@ class Chat(QtGui.QWidget):
         self.setWindowTitle('Chat')
         self.show()
 
-    def spawn_send_thread(self, message):
-        send_thread = GenericThread(self.send_message, message=message)
-        send_thread.start()
-
     def keyPressEvent(self, e):
         if e.key() == QtCore.Qt.Key_Escape:
             self.close()
 
     def message_key_handler(self, e):
+        """ What to do at keypress in message bar """
         if (e.key() == QtCore.Qt.Key_Return) or \
                 (e.key() == QtCore.Qt.Key_Enter):
             text = self.message.toPlainText()
@@ -82,9 +82,11 @@ class Chat(QtGui.QWidget):
             QtGui.QTextEdit.keyPressEvent(self.message, e)
 
     def send_message(self, message):
+        """ Send message 'message' to self.remote with sockets """
         # Internet socket and TCP
         remote = self.remote
         send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        message = "<msg><{0}><{1}>{2}".format(self.name, self.friend, message)
 
         try:
             send_socket.connect(remote)
@@ -97,17 +99,23 @@ class Chat(QtGui.QWidget):
         send_socket.close()
 
     def add_message(self, message):
-        self.earlier_messages.append("{0}: ".format(self.friend) + message)
+        """ Add 'message' from friend to textbox in chat """
+        self.earlier_messages.append(message)
 
 
 def wait_send(queue, chat):
+    """ Thread that gets message from queue and sends them via chat"""
     while True:
         if not queue.empty():
             message = queue.get()
             chat.send_message(message)
+            queue.task_done()
+        time.sleep(0.01)
 
 
 def wait_receive(get_pipe, signal):
+    """ Thread that waits for messages on 'get_pipe' and emits a signal to add
+        message to GUI """
     while True:
         if(get_pipe.poll()):
             message = get_pipe.recv()
@@ -115,7 +123,7 @@ def wait_receive(get_pipe, signal):
         time.sleep(0.01)
 
 
-def listen_thread(host, send_pipe):
+def listen_thread(host, pipes):
     """ Thread that awaits incoming connection and starts a new thread to
         handle incoming connections"""
     logging.debug("Listen thread started")
@@ -130,13 +138,13 @@ def listen_thread(host, send_pipe):
 
         if inputready:
             client_socket, _ = listen_socket.accept()
-            cthread = GenericThread(get_message, client_socket, send_pipe)
+            cthread = GenericThread(get_message, client_socket, pipes)
             cthread.start()
         time.sleep(0.01)
     logging.debug("Listen thread shutting down")
 
 
-def get_message(c_socket, send_pipe):
+def get_message(c_socket, pipes):
     """ Receive a message from connection and emit a signal to GUI thread
     """
     addr = c_socket.getpeername()
@@ -148,41 +156,27 @@ def get_message(c_socket, send_pipe):
         message_part = c_socket.recv(1024)
     message = message.decode('latin1')
     logging.debug("Got message {0} from {1}".format(message, addr))
-    send_pipe.send(message)
+    message_dict = parse_message(message)
+    if(message_dict['type'] == 'msg'):
+        send_pipe = pipes.get(message_dict['sender'])
+        if(send_pipe):
+            send_pipe.send("{0}: {1}".format(message_dict['sender'],
+                                             message_dict['message']))
 
 
-def start_chat(host, remote, friend, get_pipe, queue):
+def parse_message(message):
+    match = re.search(r'<(?P<type>[a-z]+)><(?P<sender>\w+)><(?P<receiver>\w+)>(?P<message>.*)', message)
+    message_dict = match.groupdict()
+    return message_dict
+
+
+def start_chat(host, remote, friend, name, get_pipe, queue):
+    """ Start chat with 'friend' """
     app = QtGui.QApplication(sys.argv)
-    chat = Chat(host=host, remote=remote, friend=friend, send_queue=queue)
+    chat = Chat(host=host, remote=remote, friend=friend, name=name,
+                send_queue=queue)
     send = GenericThread(wait_send, queue, chat)
     recv = GenericThread(wait_receive, get_pipe, chat.text_add)
     send.start()
     recv.start()
     sys.exit(app.exec_())
-
-
-def main():
-    parser = ArgumentParser(description='Chat program')
-    parser.add_argument('-l', '--local-port', default=12345, type=int)
-    parser.add_argument('-p', '--remote-port', default=12345, type=int)
-    parser.add_argument('-r', '--remote', default=socket.gethostname())
-    parser.add_argument('-f', '--friend', default='R', help='Friends name')
-    args = parser.parse_args()
-    host = Address(socket.gethostname(), args.local_port)
-    remote = Address(args.remote, args.remote_port)
-    get_pipe, send_pipe = Pipe(False)
-    queue = Queue()
-
-    l_thread = GenericThread(listen_thread, host, send_pipe)
-    l_thread.start()
-
-    p1 = Process(target=start_chat, kwargs={'host': host, 'remote': remote,
-                                            'friend': args.friend,
-                                            'get_pipe': get_pipe,
-                                            'queue': queue})
-
-    p1.start()
-    p1.join()
-
-if __name__ == '__main__':
-    main()
