@@ -2,32 +2,14 @@
 import sys
 import socket
 import logging
-import select
 import time
-import re
 from collections import namedtuple
+from helper import GenericThread
 from PyQt4 import QtGui, QtCore
 
 logging.basicConfig(level=logging.INFO)
 
 Address = namedtuple('Address', ['name', 'port'])
-
-
-class GenericThread(QtCore.QThread):
-    """ Class to make runt a function in a thread """
-    def __init__(self, function, *args, **kwargs):
-        super().__init__()
-        self.function = function
-        self.args = args
-        self.kwargs = kwargs
-
-    def __del__(self):
-        self.wait()
-
-    def run(self):
-        """ Run the thread """
-        self.function(*self.args, **self.kwargs)
-        return
 
 
 class Chat(QtGui.QWidget):
@@ -121,53 +103,6 @@ def wait_receive(get_pipe, signal):
             message = get_pipe.recv()
             signal.emit(message)
         time.sleep(0.01)
-
-
-def listen_thread(host, pipes):
-    """ Thread that awaits incoming connection and starts a new thread to
-        handle incoming connections"""
-    logging.debug("Listen thread started")
-    listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    listen_socket.bind(host)
-
-    listen_socket.listen(5)
-    listen_socket.setblocking(0)
-    while True:
-        inputready, _, _ = select.select([listen_socket], [], [], 0)
-
-        if inputready:
-            client_socket, _ = listen_socket.accept()
-            cthread = GenericThread(get_message, client_socket, pipes)
-            cthread.start()
-        time.sleep(0.01)
-    logging.debug("Listen thread shutting down")
-
-
-def get_message(c_socket, pipes):
-    """ Receive a message from connection and emit a signal to GUI thread
-    """
-    addr = c_socket.getpeername()
-    logging.debug("Client thread started")
-    message_part = c_socket.recv(1024)
-    message = b""
-    while message_part:
-        message += message_part
-        message_part = c_socket.recv(1024)
-    message = message.decode('latin1')
-    logging.debug("Got message {0} from {1}".format(message, addr))
-    message_dict = parse_message(message)
-    if(message_dict['type'] == 'msg'):
-        send_pipe = pipes.get(message_dict['sender'])
-        if(send_pipe):
-            send_pipe.send("{0}: {1}".format(message_dict['sender'],
-                                             message_dict['message']))
-
-
-def parse_message(message):
-    match = re.search(r'<(?P<type>[a-z]+)><(?P<sender>\w+)><(?P<receiver>\w+)>(?P<message>.*)', message)
-    message_dict = match.groupdict()
-    return message_dict
 
 
 def start_chat(host, remote, friend, name, get_pipe, queue):
