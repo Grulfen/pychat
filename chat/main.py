@@ -3,7 +3,10 @@ from qt_chat import Address, GenericThread
 from line_input import StateControl
 from listen import listen_thread
 from argparse import ArgumentParser
+import sys
+import select
 import socket
+import queue
 
 
 def main():
@@ -20,9 +23,24 @@ def main():
     l_thread = GenericThread(listen_thread, host, state_control)
     l_thread.start()
 
+    print(">", end=" ")
+    sys.stdout.flush()
     while True:
         try:
-            state_control.handle_input(input("> "))
+            input_ready, _, _ = select.select([sys.stdin], [], [], 0)
+            if sys.stdin in input_ready:
+                line = sys.stdin.readline()
+                if line:
+                    state_control.handle_input(line)
+                else:
+                    print("> ", end="")
+            try:
+                friend_name = state_control.queue.get(False)
+                state_control.connect_to(friend_name)
+                state_control.queue.task_done()
+            except queue.Empty:
+                pass
+
         except (EOFError, KeyboardInterrupt):
             state_control.shutdown()
 

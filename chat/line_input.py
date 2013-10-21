@@ -3,13 +3,13 @@ import sys
 import re
 from os import environ as env
 import pickle
-# from listen import pipes
 from helper import friend_online
 from collections import namedtuple
-# from qt_chat import start_chat
+from multiprocessing import Pipe, Process
+from queue import Queue
+from qt_chat import start_chat, Address
 
 Friend = namedtuple('Friend', ['name', 'ip', 'port'])
-default_port = 12345
 
 
 class StateControl:
@@ -18,6 +18,8 @@ class StateControl:
         self.host = host
         self.friends = {}
         self.pipes = {}
+        self.chats = []
+        self.queue = Queue()
         self.friend_file = "{0}/.qt_chat".format(env['HOME'])
         self.load_friends()
 
@@ -27,6 +29,7 @@ class StateControl:
                              'online': self.show_online,
                              'list': self.list_friends,
                              'show': self.show_friend,
+                             'quit': self.shutdown,
                              'remove': self.remove_friend}
 
     def load_friends(self):
@@ -50,6 +53,8 @@ class StateControl:
             function(*commands[1:])
         except TypeError:
             self.show_help(commands[0])
+        print(">", end=" ")
+        sys.stdout.flush()
 
     def show_friend(self, friend):
         """ show friend: show info about 'friend' """
@@ -61,6 +66,7 @@ class StateControl:
     def list_friends(self):
         """ list: List all friends """
         try:
+            print("Friends: ", end="")
             print(', '.join(self.friends.keys()))
         except TypeError:
             print(self.list_friends.__doc__)
@@ -102,9 +108,28 @@ class StateControl:
         pickle.dump(self.friends, friends_file)
         friends_file.close()
 
-    def connect_to(self, friend):
+    def connect_to(self, friend_name):
         """ connect friend: start a chat with 'friend' """
-        print("Starting chat with {0}".format(friend))
+        get_pipe, send_pipe = Pipe(False)
+        friend = self.friends.get(friend_name)
+        if not friend:
+            print("{0} is not a friend".format(friend_name))
+        elif not friend_online(friend):
+            print("{0} is not online".format(friend.name))
+        else:
+            friend_address = Address(friend.ip, int(friend.port))
+            self.pipes[friend.name] = send_pipe
+            chat = Process(target=start_chat,
+                           kwargs={'host': self.host,
+                                   'remote': friend_address,
+                                   'friend': friend.name,
+                                   'name': self.name,
+                                   'get_pipe': get_pipe,
+                                   'queue': Queue()})
+            self.chats.append(chat)
+            chat.start()
+
+            print("Starting chat with {0}".format(friend.name))
 
     def show_online(self):
         """ online: show available friends """
@@ -123,4 +148,6 @@ class StateControl:
 
     def shutdown(self):
         """ Close the chat """
+        for chat in self.chats:
+            chat.terminate()
         sys.exit(0)

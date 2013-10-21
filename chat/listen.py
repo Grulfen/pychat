@@ -5,8 +5,6 @@ import select
 import time
 from helper import parse_message, GenericThread
 
-pipes = {}
-
 
 def listen_thread(host, state_control):
     """ Thread that awaits incoming connection and starts a new thread to
@@ -44,11 +42,26 @@ def get_message(c_socket, state_control):
     logging.debug("Got message {0} from {1}".format(message, addr))
     message_dict = parse_message(message)
     if(message_dict.get('type') == 'msg'):
+        handle_msg(message_dict, pipes, state_control)
+    elif(message_dict.get('type') == 'ping'):
+        handle_ping(c_socket)
+    c_socket.close()
+
+
+def handle_msg(message_dict, pipes, state_control):
         send_pipe = pipes.get(message_dict['sender'])
         if(send_pipe):
             send_pipe.send("{0}: {1}".format(message_dict['sender'],
                                              message_dict['body']))
-    elif(message_dict.get('type') == 'ping'):
-        logging.debug("Got ping, sending pong")
-        c_socket.send("<pong><null><null>".encode('latin1'))
-    c_socket.close()
+        else:
+            sender = message_dict['sender']
+            if sender in state_control.friends:
+                state_control.queue.put(sender)
+                state_control.queue.join()
+                time.sleep(0.1)
+                handle_msg(message_dict, pipes, state_control)
+
+
+def handle_ping(c_socket):
+    logging.debug("Got ping, sending pong")
+    c_socket.send("<pong><null><null>".encode('latin1'))
