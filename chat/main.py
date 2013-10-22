@@ -33,7 +33,8 @@ def main():
                 if line:
                     state_control.handle_input(line)
                 else:
-                    print("> ", end="")
+                    print(">", end=" ")
+                    sys.stdout.flush()
             try:
                 friend_name = state_control.queue.get(False)
                 state_control.connect_to(friend_name)

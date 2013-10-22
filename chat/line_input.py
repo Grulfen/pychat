@@ -110,6 +110,8 @@ class StateControl:
 
     def connect_to(self, friend_name):
         """ connect friend: start a chat with 'friend' """
+        if friend_name in self.pipes:
+            return
         get_pipe, send_pipe = Pipe(False)
         friend = self.friends.get(friend_name)
         if not friend:
@@ -128,8 +130,6 @@ class StateControl:
                                    'queue': Queue()})
             self.chats.append(chat)
             chat.start()
-
-            print("Starting chat with {0}".format(friend.name))
 
     def show_online(self):
         """ online: show available friends """
