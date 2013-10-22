@@ -21,10 +21,10 @@ class Chat(QtGui.QWidget):
 
         self.host = host
         self.remote = remote
-        self.initUI()
         self.friend = friend
         self.send_queue = send_queue
         self.name = name
+        self.initUI()
 
     def initUI(self):
         """ Init the UI and signals """
@@ -43,7 +43,7 @@ class Chat(QtGui.QWidget):
 
         self.text_add.connect(self.add_message)
         self.setGeometry(300, 300, 350, 300)
-        self.setWindowTitle('Chat')
+        self.setWindowTitle(self.friend)
         self.show()
 
     def keyPressEvent(self, e):
