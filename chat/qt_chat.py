@@ -16,9 +16,10 @@ class Chat(QtGui.QWidget):
     """ Simple chat with GUI """
     text_add = QtCore.pyqtSignal(str, name="new_message")
 
-    def __init__(self, host, remote, send_queue, friend, name):
+    def __init__(self, host, remote, send_queue, friend, name, state):
         super().__init__()
 
+        self.state = state
         self.host = host
         self.remote = remote
         self.friend = friend
@@ -105,13 +106,14 @@ def wait_receive(get_pipe, signal):
         time.sleep(0.01)
 
 
-def start_chat(host, remote, friend, name, get_pipe, queue):
+def start_chat(host, remote, friend, name, get_pipe, queue, state):
     """ Start chat with 'friend' """
     app = QtGui.QApplication(sys.argv)
     chat = Chat(host=host, remote=remote, friend=friend, name=name,
-                send_queue=queue)
+                send_queue=queue, state=state)
     send = GenericThread(wait_send, queue, chat)
     recv = GenericThread(wait_receive, get_pipe, chat.text_add)
+    #TODO se till att de här trådarna dör när chatten gör
     send.start()
     recv.start()
     sys.exit(app.exec_())

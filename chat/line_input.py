@@ -30,7 +30,18 @@ class StateControl:
                              'list': self.list_friends,
                              'show': self.show_friend,
                              'quit': self.shutdown,
+                             'debug': self.debug,
                              'remove': self.remove_friend}
+
+    def debug(self):
+        print("name")
+        print(self.name)
+        print()
+        print("pipes")
+        print(self.pipes)
+        print()
+        print("friends")
+        print(self.friends)
 
     def load_friends(self):
         try:
@@ -126,6 +137,7 @@ class StateControl:
                                    'remote': friend_address,
                                    'friend': friend.name,
                                    'name': self.name,
+                                   'state': self,
                                    'get_pipe': get_pipe,
                                    'queue': Queue()})
             self.chats.append(chat)
