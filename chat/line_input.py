@@ -17,8 +17,8 @@ class StateControl:
         self.name = name
         self.host = host
         self.friends = {}
-        self.pipes = {}
-        self.chats = []
+        self.pipes = {}  # Dict with message- and close-pipes
+        self.chats = {}
         self.queue = Queue()
         self.friend_file = "{0}/.qt_chat".format(env['HOME'])
         self.load_friends()
@@ -121,27 +121,40 @@ class StateControl:
 
     def connect_to(self, friend_name):
         """ connect friend: start a chat with 'friend' """
-        if friend_name in self.pipes:
+        if friend_name in self.chats:
             return
-        get_pipe, send_pipe = Pipe(False)
         friend = self.friends.get(friend_name)
         if not friend:
             print("{0} is not a friend".format(friend_name))
         elif not friend_online(friend):
             print("{0} is not online".format(friend.name))
         else:
+            message_get_pipe, message_send_pipe = Pipe(False)
+            close_get_pipe, close_send_pipe = Pipe(False)
+
             friend_address = Address(friend.ip, int(friend.port))
-            self.pipes[friend.name] = send_pipe
+            self.pipes[friend.name] = (message_send_pipe, close_get_pipe)
             chat = Process(target=start_chat,
                            kwargs={'host': self.host,
                                    'remote': friend_address,
                                    'friend': friend.name,
                                    'name': self.name,
                                    'state': self,
-                                   'get_pipe': get_pipe,
+                                   'get_pipe': message_get_pipe,
+                                   'close_pipe': close_send_pipe,
                                    'queue': Queue()})
-            self.chats.append(chat)
+            self.chats[friend.name] = chat
             chat.start()
+
+    def disconnect_from(self, friend_name):
+        """ Disconnect from a friend, removing the chat from pipes and chats
+        """
+        in_pipe = friend_name in self.pipes
+        in_chat = friend_name in self.chats
+        if in_pipe:
+            del self.pipes[friend_name]
+        if in_chat:
+            del self.chats[friend_name]
 
     def show_online(self):
         """ online: show available friends """
@@ -158,8 +171,14 @@ class StateControl:
             print("Available commands: ")
             print(', '.join(self.command_dict.keys()))
 
+    def check_closed_chat(self):
+        for friend_name, pipes in list(self.pipes.items()):
+            _, close_pipe = pipes
+            if close_pipe.poll():
+                self.disconnect_from(friend_name)
+
     def shutdown(self):
         """ Close the chat """
-        for chat in self.chats:
+        for chat in self.chats.values():
             chat.terminate()
         sys.exit(0)

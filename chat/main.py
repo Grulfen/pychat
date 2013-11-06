@@ -40,6 +40,7 @@ def main():
                 state_control.queue.task_done()
             except queue.Empty:
                 pass
+            state_control.check_closed_chat()
 
         except (EOFError, KeyboardInterrupt):
             state_control.shutdown()

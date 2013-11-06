@@ -16,7 +16,8 @@ class Chat(QtGui.QWidget):
     """ Simple chat with GUI """
     text_add = QtCore.pyqtSignal(str, name="new_message")
 
-    def __init__(self, host, remote, send_queue, friend, name, state):
+    def __init__(self, host, remote, send_queue, friend, name, state,
+                 close_pipe):
         super().__init__()
 
         self.state = state
@@ -24,6 +25,7 @@ class Chat(QtGui.QWidget):
         self.remote = remote
         self.friend = friend
         self.send_queue = send_queue
+        self.close_pipe = close_pipe
         self.name = name
         self.initUI()
 
@@ -85,6 +87,10 @@ class Chat(QtGui.QWidget):
         """ Add 'message' from friend to textbox in chat """
         self.earlier_messages.append(message)
 
+    def close(self):
+        self.close_pipe.send(self.friend)
+        super().close()
+
 
 def wait_send(queue, chat):
     """ Thread that gets message from queue and sends them via chat"""
@@ -106,14 +112,14 @@ def wait_receive(get_pipe, signal):
         time.sleep(0.01)
 
 
-def start_chat(host, remote, friend, name, get_pipe, queue, state):
+def start_chat(host, remote, friend, name, get_pipe, queue, state, close_pipe):
     """ Start chat with 'friend' """
     app = QtGui.QApplication(sys.argv)
     chat = Chat(host=host, remote=remote, friend=friend, name=name,
-                send_queue=queue, state=state)
+                send_queue=queue, state=state, close_pipe=close_pipe)
     send = GenericThread(wait_send, queue, chat)
     recv = GenericThread(wait_receive, get_pipe, chat.text_add)
-    #TODO se till att de här trådarna dör när chatten gör
+    # TODO se till att de här trådarna dör när chatten gör
     send.start()
     recv.start()
     sys.exit(app.exec_())
