@@ -158,9 +158,9 @@ class StateControl:
 
     def show_online(self):
         """ online: show available friends """
-        print("Online friends: ", end='')
         online_friends = [friend for friend in self.friends.keys() if
                           friend_online(self.friends[friend])]
+        print("Online friends: ", end='')
         print(', '.join(online_friends))
 
     def show_help(self, command=None):

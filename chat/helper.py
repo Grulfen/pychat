@@ -45,7 +45,9 @@ def friend_online(friend):
         logging.debug("In friend_online: {0}\
                 ConnectionRefused".format(friend.name))
         return False
-    # ping_socket.settimeout(3)
+    except OSError:
+        print("IP of friend '{0}' not valid".format(friend.name))
+        return False
     try:
         ping_socket.send("<ping><null><null>".encode('latin1'))
         ping_socket.shutdown(socket.SHUT_WR)
