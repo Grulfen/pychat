@@ -1,6 +1,7 @@
 """ Main program for simple chat for elo322 """
 from qt_chat import Address, GenericThread
-from line_input import StateControl
+from line_input import InputControl
+from state import State
 from listen import listen_thread
 from argparse import ArgumentParser
 import sys
@@ -18,9 +19,10 @@ def main():
     args = parser.parse_args()
     host = Address(socket.gethostname(), args.local_port)
 
-    state_control = StateControl(args.name, host)
+    state = State(args.name, host)
+    input_control = InputControl(args.name, host, state)
 
-    l_thread = GenericThread(listen_thread, host, state_control)
+    l_thread = GenericThread(listen_thread, host, state)
     l_thread.start()
 
     print(">", end=" ")
@@ -31,16 +33,16 @@ def main():
             if sys.stdin in input_ready:
                 line = sys.stdin.readline()
                 if line:
-                    state_control.handle_input(line)
+                    input_control.handle_input(line)
                 else:
-                    state_control.shutdown()
+                    input_control.shutdown()
             try:
-                friend_name = state_control.queue.get(False)
-                state_control.connect_to(friend_name)
-                state_control.queue.task_done()
+                friend_name = state.queue.get(False)
+                state.connect_to(friend_name)
+                state.queue.task_done()
             except queue.Empty:
                 pass
-            state_control.check_closed_chat()
+            state.check_closed_chat()
 
         except (EOFError, KeyboardInterrupt):
             state_control.shutdown()
