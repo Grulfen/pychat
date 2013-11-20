@@ -30,16 +30,18 @@ def listen_thread(host, state_control):
 def get_message(c_socket, state_control):
     """ Receive a message from connection and emit a signal to GUI thread
     """
-    addr = c_socket.getpeername()
     logging.debug("Client thread started")
-    message_part = c_socket.recv(1024)
+    addr = c_socket.getpeername()
     pipes = state_control.pipes
+
+    message_part = c_socket.recv(1024)
     message = b""
     while message_part:
         message += message_part
         message_part = c_socket.recv(1024)
     message = message.decode('latin1')
     logging.debug("Got message {0} from {1}".format(message, addr))
+
     message_dict = parse_message(message)
     if(message_dict.get('type') == 'msg'):
         handle_msg(message_dict, pipes, state_control)
