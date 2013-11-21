@@ -6,7 +6,7 @@ import time
 from helper import parse_message, GenericThread
 
 
-def listen_thread(host, state_control):
+def listen_thread(host, state):
     """ Thread that awaits incoming connection and starts a new thread to
         handle incoming connections"""
     logging.debug("Listen thread started")
@@ -21,7 +21,7 @@ def listen_thread(host, state_control):
 
         if inputready:
             client_socket, _ = listen_socket.accept()
-            cthread = GenericThread(get_message, client_socket, state_control)
+            cthread = GenericThread(get_message, client_socket, state)
             cthread.start()
         time.sleep(0.01)
     logging.debug("Listen thread shutting down")
@@ -32,7 +32,6 @@ def get_message(c_socket, state_control):
     """
     logging.debug("Client thread started")
     addr = c_socket.getpeername()
-    pipes = state_control.pipes
 
     message_part = c_socket.recv(1024)
     message = b""
@@ -44,6 +43,7 @@ def get_message(c_socket, state_control):
 
     message_dict = parse_message(message)
     if(message_dict.get('type') == 'msg'):
+        pipes = state_control.pipes
         handle_msg(message_dict, pipes, state_control)
     elif(message_dict.get('type') == 'ping'):
         handle_ping(c_socket)

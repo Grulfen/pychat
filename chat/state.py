@@ -11,12 +11,16 @@ from qt_chat import start_chat, Address
 
 Friend = namedtuple('Friend', ['name', 'ip', 'port'])
 
+
 class State:
-    def __init__(self, name, host):
+    def __init__(self, name, host, datafile=None):
         self.friends = {}
         self.pipes = {}  # Dict with message- and close-pipes
         self.chats = {}
-        self.friend_file = "{0}/.qt_chat".format(env['HOME'])
+        if datafile:
+            self.friend_file = datafile
+        else:
+            self.friend_file = "{0}/.qt_chat".format(env['HOME'])
         self.load_friends()
         self.name = name
         self.host = host

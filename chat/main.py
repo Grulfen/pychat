@@ -45,7 +45,8 @@ def main():
             state.check_closed_chat()
 
         except (EOFError, KeyboardInterrupt):
-            state_control.shutdown()
+            state.shutdown()
+            l_thread.terminate()
 
 if __name__ == '__main__':
     main()
