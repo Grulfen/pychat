@@ -1,7 +1,13 @@
 """ Testing the chat """
 from qt_chat import GenericThread, Address
 from helper import parse_message
+from state import State
+from multiprocessing import Pipe
+import time
 import socket
+import os
+
+TESTFILE = "test.txt"
 
 
 class TestParse:
@@ -37,14 +43,17 @@ class TestParse:
 
 
 class TestServer:
-    def setup_class(cls):
+    def setup_class(self):
         from listen import listen_thread
         host = Address(socket.gethostname(), 9898)
-        cls.l_thread = GenericThread(listen_thread, host, None)
-        cls.l_thread.start()
+        self.state = State("test", host, TESTFILE)
+        self.l_thread = GenericThread(listen_thread, host, self.state)
+        self.l_thread.start()
+        time.sleep(0.2)
 
-    def teardown_class(cls):
-        cls.l_thread.terminate()
+    def teardown_class(self):
+        self.l_thread.terminate()
+        os.remove(TESTFILE)
 
     def test_ping_pong(self):
         remote = Address(socket.gethostname(), 9898)
@@ -57,3 +66,22 @@ class TestServer:
         pong = ping_socket.recv(1024).decode('latin1')
         ping_socket.close()
         assert pong == "<pong><null><null>"
+
+    def test_send_msg_hi(self):
+        get_pipe, send_pipe = Pipe(False)
+        self.state.pipes["test_sender"] = (send_pipe, None)
+
+        remote = Address(socket.gethostname(), 9898)
+        hi_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        message_send = "<msg><test_sender><test>hi"
+
+        hi_socket.connect(remote)
+        hi_socket.send(message_send.encode('latin1'))
+        hi_socket.close()
+
+        while not get_pipe.poll():
+            time.sleep(0.01)
+        message_get = get_pipe.recv()
+        assert message_get == "test_sender: hi"
+
+        del self.state.pipes["test_sender"]

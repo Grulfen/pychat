@@ -50,18 +50,18 @@ def get_message(c_socket, state_control):
     c_socket.close()
 
 
-def handle_msg(message_dict, pipes, state_control):
+def handle_msg(message_dict, pipes, state):
     try:
         send_pipe, _ = pipes.get(message_dict['sender'])
         send_pipe.send("{0}: {1}".format(message_dict['sender'],
                        message_dict['body']))
     except TypeError:
         sender = message_dict['sender']
-        if sender in state_control.friends:
-            state_control.queue.put(sender)
-            state_control.queue.join()
+        if sender in state.friends:
+            state.queue.put(sender)
+            state.queue.join()
             time.sleep(0.1)
-            handle_msg(message_dict, pipes, state_control)
+            handle_msg(message_dict, pipes, state)
 
 
 def handle_ping(c_socket):

@@ -18,6 +18,7 @@ class State:
         self.pipes = {}  # Dict with message- and close-pipes
         self.chats = {}
         if datafile:
+            open(datafile, 'a').close()
             self.friend_file = datafile
         else:
             self.friend_file = "{0}/.qt_chat".format(env['HOME'])
@@ -43,7 +44,7 @@ class State:
         except pickle.UnpicklingError:
             self.friends = {}
             friends_file.close()
-        except FileNotFoundError:
+        except (FileNotFoundError, EOFError):
             self.friends = {}
 
     def show_friend(self, friend):
@@ -151,6 +152,8 @@ class State:
             print(', '.join(self.command_dict.keys()))
 
     def check_closed_chat(self):
+        """ Check close_pipe for every open chat if chat is closed, in that
+        case, disconnect from chat """
         for friend_name, pipes in list(self.pipes.items()):
             _, close_pipe = pipes
             if close_pipe.poll():
