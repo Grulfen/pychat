@@ -30,15 +30,18 @@ def main():
     while True:
         try:
             input_ready, _, _ = select.select([sys.stdin,
-                new_chat_pipe_out.fileno()], [], [], 0)
+                                              new_chat_pipe_out.fileno()],
+                                              [], [], 0)
             if sys.stdin in input_ready:
+                # Command from command line
                 line = sys.stdin.readline()
                 if line:
                     input_control.handle_input(line)
                 else:
+                    # Shutdown on EOF
                     input_control.shutdown()
             if new_chat_pipe_out.fileno() in input_ready:
-                # If message from chat not open, connect to chat
+                # Got message from friend, but chat is not open
                 friend_name = new_chat_pipe_out.recv()
                 state.connect_to(friend_name)
             # Check if any chat has been closed
