@@ -6,7 +6,6 @@ import pickle
 from helper import friend_online
 from collections import namedtuple
 from multiprocessing import Pipe, Process
-from queue import Queue
 from qt_chat import start_chat, Address
 
 Friend = namedtuple('Friend', ['name', 'ip', 'port'])
@@ -120,8 +119,7 @@ class State:
                                    'name': self.name,
                                    'state': self,
                                    'get_pipe': message_get_pipe,
-                                   'close_pipe': close_send_pipe,
-                                   'queue': Queue()})
+                                   'close_pipe': close_send_pipe})
             self.chats[friend.name] = chat
             chat.start()
 

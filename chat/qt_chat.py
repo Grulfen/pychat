@@ -6,6 +6,7 @@ import time
 from collections import namedtuple
 from helper import GenericThread
 from PyQt4 import QtGui, QtCore
+from multiprocessing import Pipe
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,20 +17,20 @@ class Chat(QtGui.QWidget):
     """ Simple chat with GUI """
     text_add = QtCore.pyqtSignal(str, name="new_message")
 
-    def __init__(self, host, remote, send_queue, friend, name, state,
-                 close_pipe):
+    def __init__(self, host, remote, message_pipe_send, friend, name, state,
+                 close_pipe, show=True):
         super().__init__()
 
         self.state = state
         self.host = host
         self.remote = remote
         self.friend = friend
-        self.send_queue = send_queue
+        self.message_pipe_send = message_pipe_send
         self.close_pipe = close_pipe
         self.name = name
-        self.initUI()
+        self.initUI(show)
 
-    def initUI(self):
+    def initUI(self, show):
         """ Init the UI and signals """
         self.earlier_messages = QtGui.QTextEdit()
         self.earlier_messages.setReadOnly(True)
@@ -47,7 +48,8 @@ class Chat(QtGui.QWidget):
         self.text_add.connect(self.add_message)
         self.setGeometry(300, 300, 350, 300)
         self.setWindowTitle(self.friend)
-        self.show()
+        if show:
+            self.show()
 
     def keyPressEvent(self, e):
         if e.key() == QtCore.Qt.Key_Escape:
@@ -59,10 +61,9 @@ class Chat(QtGui.QWidget):
                 (e.key() == QtCore.Qt.Key_Enter):
             text = self.message.toPlainText()
             if text:
-                self.send_queue.put(text)
+                self.message_pipe_send.send(text)
                 self.earlier_messages.append("yo: " + text)
                 self.message.clear()
-                # self.spawn_send_thread(text)
         else:
             QtGui.QTextEdit.keyPressEvent(self.message, e)
 
@@ -92,19 +93,19 @@ class Chat(QtGui.QWidget):
         super().close()
 
 
-def wait_send(queue, chat):
+def wait_send(message_pipe_get, chat):
     """ Thread that gets message from queue and sends them via chat"""
     while True:
-        if not queue.empty():
-            message = queue.get()
+        if message_pipe_get.poll():
+            message = message_pipe_get.recv()
             chat.send_message(message)
-            queue.task_done()
         time.sleep(0.01)
 
 
 def wait_receive(get_pipe, signal):
     """ Thread that waits for messages on 'get_pipe' and emits a signal to add
         message to GUI """
+        # TODO Testa med get_pipe.poll(None) istället för if
     while True:
         if(get_pipe.poll()):
             message = get_pipe.recv()
@@ -112,12 +113,15 @@ def wait_receive(get_pipe, signal):
         time.sleep(0.01)
 
 
-def start_chat(host, remote, friend, name, get_pipe, queue, state, close_pipe):
+def start_chat(host, remote, friend, name, get_pipe, state, close_pipe):
     """ Start chat with 'friend' """
+    # Pipes for passing message from chat to send_thread
+    message_pipe_get, message_pipe_send = Pipe(False)
     app = QtGui.QApplication(sys.argv)
     chat = Chat(host=host, remote=remote, friend=friend, name=name,
-                send_queue=queue, state=state, close_pipe=close_pipe)
-    send = GenericThread(wait_send, queue, chat)
+                message_pipe_send=message_pipe_send, state=state,
+                close_pipe=close_pipe)
+    send = GenericThread(wait_send, message_pipe_get, chat)
     recv = GenericThread(wait_receive, get_pipe, chat.text_add)
     send.start()
     recv.start()
