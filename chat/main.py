@@ -4,10 +4,10 @@ from line_input import InputControl
 from state import State
 from listen import listen_thread
 from argparse import ArgumentParser
+from multiprocessing import Pipe
 import sys
 import select
 import socket
-import queue
 
 
 def main():
@@ -19,29 +19,29 @@ def main():
     args = parser.parse_args()
     host = Address(socket.gethostname(), args.local_port)
 
+    new_chat_pipe_out, new_chat_pipe_in = Pipe(False)
     state = State(args.name, host)
     input_control = InputControl(args.name, host, state)
-
-    l_thread = GenericThread(listen_thread, host, state)
+    l_thread = GenericThread(listen_thread, host, state, new_chat_pipe_in)
     l_thread.start()
 
     print(">", end=" ")
     sys.stdout.flush()
     while True:
         try:
-            input_ready, _, _ = select.select([sys.stdin], [], [], 0)
+            input_ready, _, _ = select.select([sys.stdin,
+                new_chat_pipe_out.fileno()], [], [], 0)
             if sys.stdin in input_ready:
                 line = sys.stdin.readline()
                 if line:
                     input_control.handle_input(line)
                 else:
                     input_control.shutdown()
-            try:
-                friend_name = state.queue.get(False)
+            if new_chat_pipe_out.fileno() in input_ready:
+                # If message from chat not open, connect to chat
+                friend_name = new_chat_pipe_out.recv()
                 state.connect_to(friend_name)
-                state.queue.task_done()
-            except queue.Empty:
-                pass
+            # Check if any chat has been closed
             state.check_closed_chat()
 
         except (EOFError, KeyboardInterrupt):

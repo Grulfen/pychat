@@ -25,7 +25,6 @@ class State:
         self.load_friends()
         self.name = name
         self.host = host
-        self.queue = Queue()
 
     def debug(self):
         print("name")

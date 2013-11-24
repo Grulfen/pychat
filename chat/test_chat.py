@@ -45,9 +45,11 @@ class TestParse:
 class TestServer:
     def setup_class(self):
         from listen import listen_thread
+        new_chat_pipe_out, new_chat_pipe_in = Pipe(False)
         host = Address(socket.gethostname(), 9898)
         self.state = State("test", host, TESTFILE)
-        self.l_thread = GenericThread(listen_thread, host, self.state)
+        self.l_thread = GenericThread(listen_thread, host, self.state,
+                new_chat_pipe_in)
         self.l_thread.start()
         time.sleep(0.2)
 

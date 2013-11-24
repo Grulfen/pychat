@@ -6,7 +6,7 @@ import time
 from helper import parse_message, GenericThread
 
 
-def listen_thread(host, state):
+def listen_thread(host, state, new_chat_pipe):
     """ Thread that awaits incoming connection and starts a new thread to
         handle incoming connections"""
     logging.debug("Listen thread started")
@@ -21,13 +21,14 @@ def listen_thread(host, state):
 
         if inputready:
             client_socket, _ = listen_socket.accept()
-            cthread = GenericThread(get_message, client_socket, state)
+            cthread = GenericThread(get_message, client_socket, state,
+                                    new_chat_pipe)
             cthread.start()
         time.sleep(0.01)
     logging.debug("Listen thread shutting down")
 
 
-def get_message(c_socket, state_control):
+def get_message(c_socket, state, new_chat_pipe):
     """ Receive a message from connection and emit a signal to GUI thread
     """
     logging.debug("Client thread started")
@@ -43,14 +44,14 @@ def get_message(c_socket, state_control):
 
     message_dict = parse_message(message)
     if(message_dict.get('type') == 'msg'):
-        pipes = state_control.pipes
-        handle_msg(message_dict, pipes, state_control)
+        pipes = state.pipes
+        handle_msg(message_dict, pipes, state, new_chat_pipe)
     elif(message_dict.get('type') == 'ping'):
         handle_ping(c_socket)
     c_socket.close()
 
 
-def handle_msg(message_dict, pipes, state):
+def handle_msg(message_dict, pipes, state, new_chat_pipe):
     try:
         send_pipe, _ = pipes.get(message_dict['sender'])
         send_pipe.send("{0}: {1}".format(message_dict['sender'],
@@ -58,10 +59,9 @@ def handle_msg(message_dict, pipes, state):
     except TypeError:
         sender = message_dict['sender']
         if sender in state.friends:
-            state.queue.put(sender)
-            state.queue.join()
-            time.sleep(0.1)
-            handle_msg(message_dict, pipes, state)
+            new_chat_pipe.send(sender)
+            time.sleep(0.3)
+            handle_msg(message_dict, pipes, state, new_chat_pipe)
 
 
 def handle_ping(c_socket):

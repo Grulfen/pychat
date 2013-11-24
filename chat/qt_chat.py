@@ -119,7 +119,6 @@ def start_chat(host, remote, friend, name, get_pipe, queue, state, close_pipe):
                 send_queue=queue, state=state, close_pipe=close_pipe)
     send = GenericThread(wait_send, queue, chat)
     recv = GenericThread(wait_receive, get_pipe, chat.text_add)
-    # TODO se till att de här trådarna dör när chatten gör
     send.start()
     recv.start()
     sys.exit(app.exec_())
