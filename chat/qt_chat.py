@@ -2,7 +2,6 @@
 import sys
 import socket
 import logging
-import time
 from collections import namedtuple
 from helper import GenericThread
 from PyQt4 import QtGui, QtCore
@@ -17,17 +16,24 @@ class Chat(QtGui.QWidget):
     """ Simple chat with GUI """
     text_add = QtCore.pyqtSignal(str, name="new_message")
 
-    def __init__(self, host, remote, message_pipe_send, friend, name, state,
-                 close_pipe, show=True):
+    def __init__(self, host, remote, friend, name, state,
+                 close_pipe, get_pipe, show=True):
         super().__init__()
 
         self.state = state
         self.host = host
         self.remote = remote
         self.friend = friend
-        self.message_pipe_send = message_pipe_send
         self.close_pipe = close_pipe
         self.name = name
+        self.get_pipe = get_pipe
+        self.message_pipe_get, self.message_pipe_send = Pipe(False)
+
+        send = GenericThread(self.wait_send)
+        recv = GenericThread(self.wait_receive)
+        send.start()
+        recv.start()
+
         self.initUI(show)
 
     def initUI(self, show):
@@ -68,19 +74,18 @@ class Chat(QtGui.QWidget):
             QtGui.QTextEdit.keyPressEvent(self.message, e)
 
     def send_message(self, message):
-        """ Send message 'message' to self.remote with sockets """
+        """ Send message 'message' to remote with sockets """
         # Internet socket and TCP
-        remote = self.remote
         send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         message = "<msg><{0}><{1}>{2}".format(self.name, self.friend, message)
 
         try:
-            send_socket.connect(remote)
+            send_socket.connect(self.remote)
         except ConnectionRefusedError:
-            logging.warning("Could not connect to {0}".format(remote))
+            logging.warning("Could not connect to {0}".format(self.remote))
             return
 
-        logging.debug("Sending message {0} to  {1}".format(message, remote))
+        logging.debug("Sending message {0} to  {1}".format(message, self.remote))
         send_socket.send(message.encode('latin1'))
         send_socket.close()
 
@@ -92,37 +97,26 @@ class Chat(QtGui.QWidget):
         self.close_pipe.send(self.friend)
         super().close()
 
+    def wait_send(self):
+        """ Thread that gets message from queue and sends them via chat"""
+        while True:
+            # Wait until message
+            self.message_pipe_get.poll(None)
+            message = self.message_pipe_get.recv()
+            self.send_message(message)
 
-def wait_send(message_pipe_get, chat):
-    """ Thread that gets message from queue and sends them via chat"""
-    while True:
-        if message_pipe_get.poll():
-            message = message_pipe_get.recv()
-            chat.send_message(message)
-        time.sleep(0.01)
-
-
-def wait_receive(get_pipe, signal):
-    """ Thread that waits for messages on 'get_pipe' and emits a signal to add
-        message to GUI """
-        # TODO Testa med get_pipe.poll(None) istället för if
-    while True:
-        if(get_pipe.poll()):
-            message = get_pipe.recv()
-            signal.emit(message)
-        time.sleep(0.01)
+    def wait_receive(self):
+        """ Thread that waits for messages on 'get_pipe' and emits a signal to add
+            message to GUI """
+        while True:
+            self.get_pipe.poll(None)
+            message = self.get_pipe.recv()
+            self.text_add.emit(message)
 
 
 def start_chat(host, remote, friend, name, get_pipe, state, close_pipe):
     """ Start chat with 'friend' """
-    # Pipes for passing message from chat to send_thread
-    message_pipe_get, message_pipe_send = Pipe(False)
     app = QtGui.QApplication(sys.argv)
     chat = Chat(host=host, remote=remote, friend=friend, name=name,
-                message_pipe_send=message_pipe_send, state=state,
-                close_pipe=close_pipe)
-    send = GenericThread(wait_send, message_pipe_get, chat)
-    recv = GenericThread(wait_receive, get_pipe, chat.text_add)
-    send.start()
-    recv.start()
+                state=state, close_pipe=close_pipe, get_pipe=get_pipe)
     sys.exit(app.exec_())
