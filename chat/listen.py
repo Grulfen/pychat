@@ -24,7 +24,7 @@ def listen_thread(host, state, new_chat_pipe):
             cthread = GenericThread(get_message, client_socket, state,
                                     new_chat_pipe)
             cthread.start()
-        time.sleep(0.01)
+        time.sleep(0.1)
     logging.debug("Listen thread shutting down")
 
 

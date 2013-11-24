@@ -8,6 +8,7 @@ from multiprocessing import Pipe
 import sys
 import select
 import socket
+import time
 
 
 def main():
@@ -46,6 +47,7 @@ def main():
                 state.connect_to(friend_name)
             # Check if any chat has been closed
             state.check_closed_chat()
+            time.sleep(0.1)
 
         except (EOFError, KeyboardInterrupt):
             state.shutdown()
