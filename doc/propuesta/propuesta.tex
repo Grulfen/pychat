@@ -2,6 +2,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
 \usepackage{fancyhdr}
+\usepackage{gantt}
 \pagestyle{fancy}
 
 \title{Propuesta - pychat}
@@ -48,8 +49,22 @@ instalación.
         \item Python 3.x
         \item PyQt4
         \item Qt4
+        \item (PyTest para verificación de funcionamiento)
 \end{itemize}
+
 \section{Tabla GANTT}
-%TODO fråga om det här verkligen är nödvändigt
+\begin{gantt}[xunitlength=5mm]{8}{15}
+\begin{ganttitle}
+        \numtitle{2}{2}{30}{1}
+\end{ganttitle}
+\ganttbar{Recibir mensaje}{0}{3}
+\ganttbarcon{Enviar mensaje}{3}{2}
+\ganttbarcon{Parse mensaje}{5}{1}
+\ganttbar{GUI}{6}{2}
+\ganttbar{Consola}{8}{2}
+\ganttbar{Concurrencia}{10}{3}
+\ganttbarcon{Verificación}{13}{2}
+\ganttcon{5}{2}{13}{7}
+\end{gantt}
 
 \end{document}

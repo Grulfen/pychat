@@ -2,6 +2,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
 \usepackage{fancyhdr}
+\usepackage{gantt}
 \pagestyle{fancy}
 
 \title{Informe - pychat}
@@ -55,8 +56,36 @@ instalación.
         \item PyQt4
         \item Qt4
 \end{itemize}
-\subsection{Tabla GANTT}
-%TODO fråga om det här verkligen är nödvändigt
+\subsection{Tablas GANTT}
+\subsubsection{Tabla inicial}
+\begin{gantt}[xunitlength=5mm]{8}{15}
+\begin{ganttitle}
+        \numtitle{2}{2}{30}{1}
+\end{ganttitle}
+\ganttbar{Recibir mensaje}{0}{3}
+\ganttbarcon{Enviar mensaje}{3}{2}
+\ganttbarcon{Parse mensaje}{5}{1}
+\ganttbar{GUI}{6}{2}
+\ganttbar{Consola}{8}{2}
+\ganttbar{Concurrencia}{10}{3}
+\ganttbarcon{Verificación}{13}{2}
+\ganttcon{5}{2}{13}{7}
+\end{gantt}
+
+\subsubsection{Tabla final}
+\begin{gantt}[xunitlength=5mm]{8}{19}
+\begin{ganttitle}
+        \numtitle{2}{2}{38}{1}
+\end{ganttitle}
+\ganttbar{Recibir mensaje}{0}{4}
+\ganttbarcon{Enviar mensaje}{4}{2}
+\ganttbarcon{Parse mensaje}{6}{1}
+\ganttbar{GUI}{7}{2}
+\ganttbar{Consola}{9}{2}
+\ganttbar{Concurrencia}{11}{4}
+\ganttbarcon{Verificación}{15}{4}
+\ganttcon{5}{2}{15}{7}
+\end{gantt}
 \subsection{Resultados}
 
 \section{Arquitectura}
