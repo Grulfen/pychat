@@ -45,11 +45,13 @@ class TestParse:
 class TestServer:
     def setup_class(self):
         from listen import listen_thread
+        self.host = Address(socket.gethostname(), 9898)
+        self.remote = Address(socket.gethostname(), 9898)
         new_chat_pipe_out, new_chat_pipe_in = Pipe(False)
-        host = Address(socket.gethostname(), 9898)
-        self.state = State("test", host, TESTFILE)
-        self.l_thread = GenericThread(listen_thread, host, self.state,
-                new_chat_pipe_in)
+
+        self.state = State("test", self.host, TESTFILE)
+        self.l_thread = GenericThread(listen_thread, self.host, self.state,
+                                      new_chat_pipe_in)
         self.l_thread.start()
         time.sleep(0.2)
 
@@ -58,26 +60,24 @@ class TestServer:
         os.remove(TESTFILE)
 
     def test_ping_pong(self):
-        remote = Address(socket.gethostname(), 9898)
         ping_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         message = "<ping><null><null>"
 
-        ping_socket.connect(remote)
+        ping_socket.connect(self.remote)
         ping_socket.send(message.encode('latin1'))
         ping_socket.shutdown(socket.SHUT_WR)
         pong = ping_socket.recv(1024).decode('latin1')
         ping_socket.close()
         assert pong == "<pong><null><null>"
 
-    def test_send_msg_hi(self):
+    def test_get_msg_hi(self):
         get_pipe, send_pipe = Pipe(False)
         self.state.pipes["test_sender"] = (send_pipe, None)
 
-        remote = Address(socket.gethostname(), 9898)
         hi_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         message_send = "<msg><test_sender><test>hi"
 
-        hi_socket.connect(remote)
+        hi_socket.connect(self.remote)
         hi_socket.send(message_send.encode('latin1'))
         hi_socket.close()
 

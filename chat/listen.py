@@ -18,7 +18,6 @@ def listen_thread(host, state, new_chat_pipe):
     listen_socket.setblocking(0)
     while True:
         inputready, _, _ = select.select([listen_socket], [], [], 0)
-
         if inputready:
             client_socket, _ = listen_socket.accept()
             cthread = GenericThread(get_message, client_socket, state,

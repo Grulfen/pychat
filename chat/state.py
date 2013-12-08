@@ -20,7 +20,7 @@ class State:
             open(datafile, 'a').close()
             self.friend_file = datafile
         else:
-            self.friend_file = "{0}/.qt_chat".format(env['HOME'])
+            self.friend_file = "{0}/.pychat.conf".format(env['HOME'])
         self.load_friends()
         self.name = name
         self.host = host
