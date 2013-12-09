@@ -3,8 +3,10 @@
 \usepackage[spanish]{babel}
 \usepackage{fancyhdr}
 \usepackage{gantt}
+\usepackage{graphicx}
 \pagestyle{fancy}
 
+\headheight = 15pt
 \title{Informe - pychat}
 \author{Gustav Svensk}
 \begin{document}
@@ -49,12 +51,11 @@ En esta sección se escribe los requerimientos del programa.
                 reenvío de puertos.
 \end{itemize}
 \subsubsection{SW}
-El programa final va a incluir un archivo setup.py para facilitar la
-instalación.
 \begin{itemize}
         \item Python 3.x
         \item PyQt4
         \item Qt4
+        \item (PyTest para verificación de funcionamiento)
 \end{itemize}
 \subsection{Tablas GANTT}
 \subsubsection{Tabla inicial}
@@ -86,11 +87,83 @@ instalación.
 \ganttbarcon{Verificación}{15}{4}
 \ganttcon{5}{2}{15}{7}
 \end{gantt}
+
+Como se puede ver en las tablas Gantt el proyecto tomó más tiempo que planeado.
+Las cosas que tomaron más tiempo era hacer el socket de bienvenido en su propia
+hebra y trabajar con la concurrencia. También había varios errores pequeños en
+el fin del proyecto que hacían que la verificación tomaba más tiempo.
+
 \subsection{Resultados}
+El programa funciona ahora pero para ser más fácil a usar se debería cambiar la
+interfaz para que sea más intuitiva. He aprendido que concurrencia, interfaces
+gráficas y comunicación entre procesos/hebras puede causar muchos problemas y a
+veces se necesita cambiar su estructura inicial para habilitar restricciones de
+otros programas. En este caso había problemas a correr la interfaz gráfica en una
+hebra que no era la hebra principal. Por eso la interfaz corre en su propio
+proceso ahora y se necesita comunicación entre procesos en vez que comunicación
+entre hebras que es más fácil.
 
 \section{Arquitectura}
-\section{Diseño de Protocolo}
-\section{Diseño de Código}
-\section{Verificación}
+La arquitectura del programa es P2P, usa sockets TCP y es escrito en Python3.
+En figura~\ref{fig:arch} se puede ver un diagrama de la arquitectura del
+programa.
+\begin{figure}[hb]
+        \centering
+        \includegraphics[width=\textwidth]{../imagenes/architecture.png}
+        \caption{Diagrama de Arquitectura}
+        \label{fig:arch}
+\end{figure}
+\begin{itemize}
+        \item \texttt{Main(CLI)} - La hebra principal que inicia y maneja los otros
+                objetos
+        \item \texttt{Input Control} - El objeto que maneja las entradas de la linea de
+                commandos
+        \item \texttt{State} - El objeto que contiene el estado del programa, por
+                ejemplo que chats son abiertos, guarda los amigos y los objetos
+                para comunicación entre procesos
+        \item \texttt{.pychat.conf} - Archivo que guarda los amigos
 
+        \item \texttt{listen\_thread} - La hebrea que contiene el socket del ``servidor'',
+                todos los mensajes recibidos van por este socket que en su torno
+                busca a que chat van y los envía por allí
+        \item \texttt{GUI Chat} - La interfaz gráfica de cada chat abierto
+        \item \texttt{send\_thread} - La hebra que envía los mensajes del chat
+        \item \texttt{recv\_thread} - La hebra que recibe mensajes del
+                \texttt{listen\_thread}
+\end{itemize}
+\section{Diseño de Protocolo}
+Los mensajes estan en el formato \texttt{<type><sender><reciever>body} donde los
+campos significan:
+\begin{itemize}
+        \item type - Que tipo de mensaje es, puede ser msg (mensaje) o ping
+                (para ver si el usuario es online)
+        \item sender - Nombre del usuario que envió el mensaje
+        \item receiver - Nombre del usuario que va a recibir el mensaje
+        \item body - La mensaje
+\end{itemize}
+
+El protocolo es muy simple y no tiene estado.
+
+Cuando un mensaje este recibido llega al \texttt{listen\_thread} que analiza el
+mensaje, si no es válido bota el mensaje. Si es de tipo ping responde con un
+mensaje de pong. Si el un mensaje de tipo msg intenta a enviar el mensaje a la
+interfaz gráfica, si la interfaz no este abierta se abre una nueva ventana y
+envía el mensaje a la interfaz de nuevo.
+
+\section{Diseño de Código}
+\begin{table}
+        \centering
+        \begin{tabular}{|p{3cm}|p{8cm}|p{25mm}|}
+                \hline
+                \textbf{Nombre} & \textbf{Descripción} & \textbf{Complejidad} \\
+                \hline
+                \texttt{listen\_thread} & La hebra que maneja mensajes recibidos
+                & MEDIANO \\
+                \hline
+        \end{tabular}
+        \caption{Funciones y módulos principales}
+        \label{tab:func}
+\end{table}
+
+\section{Verificación}
 \end{document}
