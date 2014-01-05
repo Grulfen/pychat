@@ -13,9 +13,9 @@ Friend = namedtuple('Friend', ['name', 'ip', 'port'])
 
 class State:
     def __init__(self, name, host, datafile=None):
-        self.friends = {}
+        self.friends = {} # Dick with friends, saved to file
         self.pipes = {}  # Dict with message- and close-pipes
-        self.chats = {}
+        self.chats = {}  # Dict with open chats
         if datafile:
             open(datafile, 'a').close()
             self.friend_file = datafile
@@ -36,6 +36,7 @@ class State:
         print(self.friends)
 
     def load_friends(self):
+        # Load friends from file
         try:
             friends_file = open(self.friend_file, "rb")
             self.friends = pickle.load(friends_file)
@@ -62,6 +63,7 @@ class State:
 
     def add_friend(self, friend, ip, port='12345'):
         """ add friend ip port: Add friend with ip 'ip' and port 'port' """
+        # Regular expressions to assure that the information is in the correct format
         friend_re = re.compile(r'\w+')
         ip_re = re.compile(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
         port_re = re.compile(r'[0-9]{2,5}')
@@ -93,12 +95,15 @@ class State:
         print("User {0} removed".format(friend))
 
     def write_friends(self):
+        # Write friends to file
+        # TODO, maybe change this to json
         friends_file = open(self.friend_file, "wb")
         pickle.dump(self.friends, friends_file)
         friends_file.close()
 
     def connect_to(self, friend_name):
         """ connect friend: start a chat with 'friend' """
+        # If chat already open, do nothing
         if friend_name in self.chats:
             return
         friend = self.friends.get(friend_name)
@@ -107,11 +112,13 @@ class State:
         elif not friend_online(friend):
             print("{0} is not online".format(friend.name))
         else:
+            # Set up pipes for messages and closing
             message_get_pipe, message_send_pipe = Pipe(False)
             close_get_pipe, close_send_pipe = Pipe(False)
 
             friend_address = Address(friend.ip, int(friend.port))
             self.pipes[friend.name] = (message_send_pipe, close_get_pipe)
+            # Create chat
             chat = Process(target=start_chat,
                            kwargs={'host': self.host,
                                    'remote': friend_address,
@@ -121,6 +128,7 @@ class State:
                                    'get_pipe': message_get_pipe,
                                    'close_pipe': close_send_pipe})
             self.chats[friend.name] = chat
+            # Open chat
             chat.start()
 
     def disconnect_from(self, friend_name):

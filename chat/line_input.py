@@ -29,12 +29,19 @@ class InputControl:
     def handle_input(self, line):
         """ Handle user input from terminal """
         commands = line.split()
+
+        # If no parameters, do nothing
         if len(commands) < 1:
             return
+
+        # Get function from command dictonary
         function = self.command_dict.get(commands[0],
                                          lambda: print("Unkown command"))
+
+        # Call the function
         try:
             function(*commands[1:])
+        # If wrong arguments, show help message of function
         except TypeError:
             self.show_help(commands[0])
         print(">", end=" ")
@@ -57,14 +64,18 @@ class InputControl:
 
     def show_help(self, command=None):
         """ help command: print help message for 'command' """
+        # Show help for command
         if command in self.command_dict:
             print(self.command_dict[command].__doc__)
+        # If command not found, show available commands
         else:
             print("Available commands: ")
             print(', '.join(self.command_dict.keys()))
 
     def shutdown(self):
         """ Close the chat """
+        # Close down all chat windows
         for chat in self.state.chats.values():
             chat.terminate()
+        # Terminate application
         sys.exit(0)

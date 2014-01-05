@@ -151,7 +151,12 @@ interfaz gráfica, si la interfaz no este abierta se abre una nueva ventana y
 envía el mensaje a la interfaz de nuevo.
 
 \section{Diseño de Código}
-\begin{table}
+En la tabla \ref{tab:func} se puede ver los componentes más importantes de la aplicación.
+El objeto chat demoró mucho tiempo porque no he trabajado mucho con GUI antes y
+había restricciones en que tipos de hebras se puede correr el GUI. Entonces era
+necesario cambiar la estructura a una estructura con procesos en vez que solo
+hebras cuando introduje concurrencia.
+\begin{table}[h]
         \centering
         \begin{tabular}{|p{3cm}|p{8cm}|p{25mm}|}
                 \hline
@@ -159,6 +164,17 @@ envía el mensaje a la interfaz de nuevo.
                 \hline
                 \texttt{listen\_thread} & La hebra que maneja mensajes recibidos
                 & MEDIANO \\
+                \hline
+                \texttt{main} & Función que usa los argumentos de la linea de
+                comandos para configurar el programa. También corre el loop
+                principal. & BAJO \\
+                \hline
+                \texttt{InputControl} & Objeto que maneja la interfaz textual
+                con el usuario & BAJO \\
+                \hline
+                \texttt{State} & Objeto que contiene el estado de la aplicación & MEDIANO \\
+                \hline
+                \texttt{Chat} & Objeto que maneja la interfaz grafica para cada chat & ALTO \\
                 \hline
         \end{tabular}
         \caption{Funciones y módulos principales}
