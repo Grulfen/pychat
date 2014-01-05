@@ -151,11 +151,14 @@ interfaz gráfica, si la interfaz no este abierta se abre una nueva ventana y
 envía el mensaje a la interfaz de nuevo.
 
 \section{Diseño de Código}
-En la tabla \ref{tab:func} se puede ver los componentes más importantes de la aplicación.
+En la tabla~\ref{tab:func} se puede ver los componentes más importantes de la aplicación.
 El objeto chat demoró mucho tiempo porque no he trabajado mucho con GUI antes y
 había restricciones en que tipos de hebras se puede correr el GUI. Entonces era
 necesario cambiar la estructura a una estructura con procesos en vez que solo
 hebras cuando introduje concurrencia.
+
+En figura~\ref{fig:screen} se puede ver una imagen con la aplicación corriendo,
+son dos instancias de la programa en la misma computadora.
 \begin{table}[h]
         \centering
         \begin{tabular}{|p{3cm}|p{8cm}|p{25mm}|}
@@ -181,5 +184,78 @@ hebras cuando introduje concurrencia.
         \label{tab:func}
 \end{table}
 
+\begin{figure}
+        \centering
+        \includegraphics[width=1.2\textwidth]{../imagenes/screenshot.png}
+        \caption{Screenshot de la aplicación}
+        \label{fig:screen}
+\end{figure}
+
+\newpage
+
 \section{Verificación}
+Para verificar que el programa funciona bien hay el archivo
+\texttt{test\_chat.py} que usa la libreria py.test. Para correr los tests
+se ejecuta \texttt{py.test} en la carpeta donde está el archivo \texttt{test\_chat.py}.
+Los tests se puede ver en tabla~\ref{tab:test}.
+\begin{table}[h]
+        \centering
+        \begin{tabular}{|p{5cm}|p{8cm}|}
+                \hline
+                \textbf{Test} & \textbf{Descripción} \\
+                \hline
+                \texttt{test\_parse\_type} & Verifica el analizo del parte tipo de una mensaje \\
+                \hline
+                \texttt{test\_parse\_sender} & Verifica el analizo del parte enviador de una mensaje \\
+                \hline
+                \texttt{test\_parse\_reciever} & Verifica el analizo del parte receptor de una mensaje \\
+                \hline
+                \texttt{test\_parse\_body} & Verifica el analizo del parte cuerpo de una mensaje \\
+                \hline
+                \texttt{test\_parse\_mismatch} & Verifica el analizo cuando una mensaje está mal formateado \\
+                \hline
+                \texttt{test\_ping\_pong} & Verifica que se recibe un ping después de un pong \\
+                \hline
+                \texttt{test\_get\_msg\_hi} & Verifica que se recibe una mensaje con cuerpo hi \\
+                \hline
+        \end{tabular}
+        \caption{Tests para verificar el funcionamiento}
+        \label{tab:test}
+\end{table}
+
+\section{Uso}
+Se inicia el programa con el comando \\
+\texttt{python3 main.py -l PUERTO\_LOCAL -n NOMBRE}
+Una linea de comandos aparece, para ver los comandos que hay se entra ``help''.
+Los comandos que hay se puede encontrar en tabla~\ref{tab:comandos}. Para
+recibir más información sobre un comando se entra ``help COMANDO'.
+
+\begin{table}[h]
+        \centering
+        \begin{tabular}{|p{5cm}|p{8cm}|}
+                \hline
+                \textbf{Comando} & \textbf{Descripción} \\
+                \hline
+                online & Muestra los amigos que estan online \\
+                \hline
+                list & Muestra todos los amigos \\
+                \hline
+                help & Muestra ayuda sobre los comandos \\
+                \hline
+                add & Agrega un amigo \\
+                \hline 
+                debug & Muestra información para debuging \\
+                \hline
+                quit & Cierra la aplicación \\
+                \hline
+                remove & Quita un amigo \\
+                \hline
+                show & Muestra información sobre un amigo \\
+                \hline
+                connect & Abre una ventana chat con un amigo \\
+                \hline
+        \end{tabular}
+        \caption{Comandos}
+        \label{tab:comandos}
+\end{table}
 \end{document}
